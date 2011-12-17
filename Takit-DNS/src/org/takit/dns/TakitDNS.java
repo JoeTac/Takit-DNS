@@ -2,6 +2,7 @@ package org.takit.dns;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -11,25 +12,38 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class TakitDNS extends JavaPlugin {
-	public Logger log = Logger.getLogger("Minecraft");
+	public static Logger log = Logger.getLogger("Minecraft");
 	
 	//private String username = "";
 	//private String password = "";
 	private String urlCode = "";
 	private String host = "";
 	private long interval = 0L;
+	private String lastIP = "";
 	
 	public void onDisable() {
 		log.info(String.format(Messages.PLUGIN_DISABLE, getDescription().getName()));
 	}
-
 	public void onEnable() {
 		initConfig();
 		
 		this.getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
 			public void run() {
+				String currentIP = "";
+				try {
+					currentIP = TakitDNS.getIP();
+				}
+				catch ( Exception ignore ) { }
+				
+				if ( lastIP.equals(currentIP) ) {
+					return;
+				}
+				
+				lastIP = currentIP;
+				TakitDNS.log.info(String.format(Messages.IP_CHANGED, lastIP));
+				
 		    	if ( host.equals("freedns.afraid.org") ) {
-		    		try {
+		    		try {		
 		    			URL url = new URL("http://freedns.afraid.org/dynamic/update.php?"+urlCode);
 		    			InputStream is = url.openStream();
 		    			BufferedReader dr = new BufferedReader(new InputStreamReader(is));
@@ -49,6 +63,25 @@ public class TakitDNS extends JavaPlugin {
 		log.info(String.format(Messages.PLUGIN_ENABLE, getDescription().getName()));
 	}
 	
+	public static String getIP() throws IOException  {
+		StringBuffer sb = new StringBuffer();
+		String document = null;
+		String line = "";
+		URL url = new URL("http://checkip.dyndns.com/");
+		InputStream is = url.openStream();
+		BufferedReader dr = new BufferedReader(new InputStreamReader(is));
+		
+		line=dr.readLine();
+		while ( line!=null) {
+			sb.append(line);
+			line=dr.readLine();
+		}
+		document = sb.toString();
+		dr.close();
+		is.close();
+		
+		return document.substring(document.indexOf("Current IP Address: ")+20, document.indexOf("</body>"));
+	}
 	public void initConfig() {
 		FileConfiguration config = getConfig();
 		
@@ -65,5 +98,12 @@ public class TakitDNS extends JavaPlugin {
 		//password = config.getString("dns.password", "");
 		urlCode = config.getString("dns.url-code");
 		interval = config.getInt("dns.interval");
+		
+		try {
+			lastIP = getIP();
+		}
+		catch ( Exception e ) {
+			e.printStackTrace();
+		}
 	}
 }
