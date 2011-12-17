@@ -9,6 +9,7 @@ import java.net.URL;
 import java.util.logging.Logger;
 
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class TakitDNS extends JavaPlugin {
@@ -60,7 +61,11 @@ public class TakitDNS extends JavaPlugin {
 		    	}
 		    }
 		}, (interval*20)*60);
-		log.info(String.format(Messages.PLUGIN_ENABLE, getDescription().getName()));
+		log.info(String.format(
+				Messages.PLUGIN_ENABLE, 
+				getDescription().getName(),
+				lastIP
+		));
 	}
 	
 	public static String getIP() throws IOException  {
@@ -83,14 +88,19 @@ public class TakitDNS extends JavaPlugin {
 		return document.substring(document.indexOf("Current IP Address: ")+20, document.indexOf("</body>"));
 	}
 	public void initConfig() {
-		FileConfiguration config = getConfig();
+		File file = new File("plugins"+File.separator+"Takit"+File.separator+"dns.yml");
+		FileConfiguration config = YamlConfiguration.loadConfiguration(file);
 		
-		File configFile = new File(this.getDataFolder(), "dns.yml");
-		if ( !configFile.exists() ) {
+		if ( !file.exists() ) {
 			config.set("dns.url-code", "url-code");
 			config.set("dns.interval", 10);
-			saveConfig();
-			reloadConfig();
+			try {
+				config.save(file);
+				config.load(file);
+			}
+			catch ( Exception e ) {
+				e.printStackTrace();
+			}
 		}
 		
 		host = config.getString("dns.host", "freedns.afraid.org");
