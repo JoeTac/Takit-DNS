@@ -2,7 +2,6 @@ package org.takit.dns;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -13,54 +12,30 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class TakitDNS extends JavaPlugin {
+	public static final String FREEDNS_AFRAID_ORG = "freedns.afraid.org";
+	
 	public static Logger log = Logger.getLogger("Minecraft");
 	
-	//private String username = "";
-	//private String password = "";
-	private String urlCode = "";
-	private String host = "";
-	private long interval = 0L;
-	private String lastIP = "";
+	private static String username = "";
+	private static String password = "";
+	private static String domain = "";
+	private static long interval = 0L;
+	private static String host = "";
+	private static String lastIP = "";
 	
 	public void onDisable() {
 		log.info(String.format(Messages.PLUGIN_DISABLE, getDescription().getName()));
 	}
 	public void onEnable() {
 		initConfig();
+		update();
 		
 		this.getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
 			public void run() {
-				String currentIP = "";
-				try {
-					currentIP = TakitDNS.getIP();
-				}
-				catch ( Exception ignore ) { }
-				
-				if ( lastIP.equals(currentIP) ) {
-					return;
-				}
-				
-				lastIP = currentIP;
-				TakitDNS.log.info(String.format(Messages.IP_CHANGED, lastIP));
-				
-		    	if ( host.equals("freedns.afraid.org") ) {
-		    		try {		
-		    			URL url = new URL("http://freedns.afraid.org/dynamic/update.php?"+urlCode);
-		    			InputStream is = url.openStream();
-		    			BufferedReader dr = new BufferedReader(new InputStreamReader(is));
-		    			
-		    			while ( (dr.readLine())!=null)
-		    				;
-		    			
-		    			dr.close();
-		    			is.close();
-		    		}
-		    		catch (Exception e) {
-						e.printStackTrace();
-					}
-		    	}
+				TakitDNS.update();
 		    }
 		}, (interval*20)*60);
+		
 		log.info(String.format(
 				Messages.PLUGIN_ENABLE, 
 				getDescription().getName(),
@@ -68,31 +43,56 @@ public class TakitDNS extends JavaPlugin {
 		));
 	}
 	
-	public static String getIP() throws IOException  {
-		StringBuffer sb = new StringBuffer();
-		String document = null;
-		String line = "";
-		URL url = new URL("http://checkip.dyndns.com/");
-		InputStream is = url.openStream();
-		BufferedReader dr = new BufferedReader(new InputStreamReader(is));
+	public static void update() {
+		String currentIP = getIP();
 		
-		line=dr.readLine();
-		while ( line!=null) {
-			sb.append(line);
-			line=dr.readLine();
+		if ( lastIP.equals(currentIP) ) {
+			return;
 		}
-		document = sb.toString();
-		dr.close();
-		is.close();
 		
-		return document.substring(document.indexOf("Current IP Address: ")+20, document.indexOf("</body>"));
+		lastIP = currentIP;
+		
+    	if ( host.equals(FREEDNS_AFRAID_ORG) ) {
+    		String file = getURL(
+    				"http://freedns.afraid.org/api/?action=getdyndns&sha=" + 
+    				Security.SHA1(username.toLowerCase()+"|"+password)
+    		);
+    		if ( file==null ) {
+    			return;
+    		}
+    		String[] entries = file.split("\n");
+    		String[] entry = null;
+    		for ( int i=0; i<entries.length; ++i ) {
+    			entry = entries[i].split("\\|");
+    			if ( domain.equals(entry[0]) ) {
+    				break;
+    			}
+    			else {
+    				entry = null;
+    			}
+    		}
+    		if ( entry==null ) {
+    			log.info(String.format(
+    				Messages.DOMAIN_NOT_FOUND,
+    				domain
+    			));
+    			return;
+    		}
+    		
+    		getURL(entry[2]);
+    		log.info(String.format(Messages.IP_CHANGED, lastIP));
+    	}
 	}
+	
+	
 	public void initConfig() {
 		File file = new File("plugins"+File.separator+"Takit"+File.separator+"dns.yml");
 		FileConfiguration config = YamlConfiguration.loadConfiguration(file);
 		
 		if ( !file.exists() ) {
-			config.set("dns.url-code", "url-code");
+			config.set("dns.domain", "your-domain");
+			config.set("dns.username", "username");
+			config.set("dns.password", "password");
 			config.set("dns.interval", 10);
 			try {
 				config.save(file);
@@ -103,17 +103,39 @@ public class TakitDNS extends JavaPlugin {
 			}
 		}
 		
-		host = config.getString("dns.host", "freedns.afraid.org");
-		//username = config.getString("dns.username", "");
-		//password = config.getString("dns.password", "");
-		urlCode = config.getString("dns.url-code");
+		domain = config.getString("dns.domain", "freedns.afraid.org");
+		username = config.getString("dns.username");
+		password = config.getString("dns.password");
 		interval = config.getInt("dns.interval");
-		
+	}
+	
+	public static String getIP() {
+		String ret = getURL("http://checkip.dyndns.com/");
+		if ( ret!=null ) {
+			ret = ret.substring(ret.indexOf("Current IP Address: ")+20, ret.indexOf("</body>"));
+		}
+		return ret;
+	}
+	public static String getURL(String url) {
+		String fileContents = null;
 		try {
-			lastIP = getIP();
+			StringBuffer sb = new StringBuffer();
+			String line = "";
+			URL u = new URL(url);
+			InputStream is = u.openStream();
+			BufferedReader dr = new BufferedReader(new InputStreamReader(is));
+			
+			line=dr.readLine();
+			while ( line!=null) {
+				sb.append(line).append("\n");
+				line=dr.readLine();
+			}
+			fileContents = sb.toString();
+			dr.close();
+			is.close();
 		}
-		catch ( Exception e ) {
-			e.printStackTrace();
-		}
+		catch ( Exception ignore ) { }
+		
+		return fileContents;
 	}
 }
