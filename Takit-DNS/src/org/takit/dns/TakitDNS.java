@@ -21,7 +21,6 @@ public class TakitDNS extends JavaPlugin {
 	private static String domain = "";
 	private static long interval = 0L;
 	private static String host = "";
-	private static String lastIP = "";
 	
 	public void onDisable() {
 		log.info(String.format(Messages.PLUGIN_DISABLE, getDescription().getName()));
@@ -38,19 +37,12 @@ public class TakitDNS extends JavaPlugin {
 		
 		log.info(String.format(
 				Messages.PLUGIN_ENABLE, 
-				getDescription().getName(),
-				lastIP
+				getDescription().getName()
 		));
 	}
 	
 	public static void update() {
 		String currentIP = getIP();
-		
-		if ( lastIP.equals(currentIP) ) {
-			return;
-		}
-		
-		lastIP = currentIP;
 		
     	if ( host.equals(FREEDNS_AFRAID_ORG) ) {
     		String file = getURL(
@@ -79,8 +71,10 @@ public class TakitDNS extends JavaPlugin {
     			return;
     		}
     		
-    		getURL(entry[2]);
-    		log.info(String.format(Messages.IP_CHANGED, lastIP));
+    		if ( !currentIP.equals(entry[1]) ) {
+	    		getURL(entry[2]);
+	    		log.info(String.format(Messages.IP_CHANGED, currentIP));
+    		}
     	}
 	}
 	
