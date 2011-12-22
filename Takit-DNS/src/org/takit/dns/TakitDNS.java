@@ -11,18 +11,18 @@ import java.util.logging.Logger;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.takit.dns.services.Afraid;
 
 public class TakitDNS extends JavaPlugin {
 	public static final String FREEDNS_AFRAID_ORG = "freedns.afraid.org";
 	
 	public static Logger log = Logger.getLogger("Minecraft");
 	
-	private static String appName = "";
-	private static String username = "";
-	private static String password = "";
-	private static String domain = "";
-	private static long interval = 0L;
-	private static String host = FREEDNS_AFRAID_ORG;
+	private String username;
+	private String password;
+	private String domain;
+	private long interval;
+	private String host;
 	
 	public void onDisable() {
 		log.info(String.format(Messages.PLUGIN_DISABLE, getDescription().getName()));
@@ -30,58 +30,26 @@ public class TakitDNS extends JavaPlugin {
 	public void onEnable() {
 		initConfig();
 		
-		this.getServer().getScheduler().scheduleAsyncRepeatingTask(this, new Runnable() {
-			public void run() {
-				TakitDNS.update();
-		    }
-		}, (interval*20)*60, (interval*20)*60);
+		if ( host.equals(FREEDNS_AFRAID_ORG) ) {
+			this.getServer().getScheduler().scheduleAsyncRepeatingTask(
+				this, 
+				new Afraid(this, username, password, domain),
+				(interval*20)*60,
+				(interval*20)*60
+			);
+		}
+		else {
+			log.log(Level.WARNING, String.format(
+				Messages.HOST_NOT_FOUND, 
+				getDescription().getName(),
+				host
+			));
+		}
 		
 		log.info(String.format(
 				Messages.PLUGIN_ENABLE, 
 				getDescription().getName()
 		));
-	}
-	
-	public static void update() {
-		String currentIP = getIP();
-		
-    	if ( host.equals(FREEDNS_AFRAID_ORG) ) {
-    		String file = getURL(
-    				"http://freedns.afraid.org/api/?action=getdyndns&sha=" + 
-    				Security.SHA1(username.toLowerCase()+"|"+password)
-    		);
-    		if ( file==null ) {
-    			return;
-    		}
-    		String[] entries = file.split("\n");
-    		String[] entry = null;
-    		for ( int i=0; i<entries.length; ++i ) {
-    			entry = entries[i].split("\\|");
-    			if ( domain.equals(entry[0]) ) {
-    				break;
-    			}
-    			else {
-    				entry = null;
-    			}
-    		}
-    		if ( entry==null ) {
-    			log.log(Level.WARNING, String.format(
-    				Messages.DOMAIN_NOT_FOUND,
-    				appName,
-    				domain
-    			));
-    			return;
-    		}
-    		
-    		if ( !currentIP.equals(entry[1]) ) {
-	    		getURL(entry[2]);
-	    		log.info(String.format(
-	    			Messages.IP_CHANGED, 
-	    			appName,
-	    			currentIP
-	    		));
-    		}
-    	}
 	}
 	
 	
@@ -94,6 +62,7 @@ public class TakitDNS extends JavaPlugin {
 			config.set("dns.username", "username");
 			config.set("dns.password", "password");
 			config.set("dns.interval", 10);
+			config.set("dns.host", FREEDNS_AFRAID_ORG);
 			try {
 				config.save(file);
 				config.load(file);
@@ -107,6 +76,7 @@ public class TakitDNS extends JavaPlugin {
 		username = config.getString("dns.username");
 		password = config.getString("dns.password");
 		interval = config.getInt("dns.interval");
+		host = config.getString("dns.host");
 	}
 	
 	public static String getIP() {
