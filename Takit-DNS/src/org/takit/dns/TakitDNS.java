@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.bukkit.configuration.file.FileConfiguration;
@@ -16,24 +17,24 @@ public class TakitDNS extends JavaPlugin {
 	
 	public static Logger log = Logger.getLogger("Minecraft");
 	
+	private static String appName = "";
 	private static String username = "";
 	private static String password = "";
 	private static String domain = "";
 	private static long interval = 0L;
-	private static String host = "";
+	private static String host = FREEDNS_AFRAID_ORG;
 	
 	public void onDisable() {
 		log.info(String.format(Messages.PLUGIN_DISABLE, getDescription().getName()));
 	}
 	public void onEnable() {
 		initConfig();
-		update();
 		
-		this.getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+		this.getServer().getScheduler().scheduleAsyncRepeatingTask(this, new Runnable() {
 			public void run() {
 				TakitDNS.update();
 		    }
-		}, (interval*20)*60);
+		}, (interval*20)*60, (interval*20)*60);
 		
 		log.info(String.format(
 				Messages.PLUGIN_ENABLE, 
@@ -64,8 +65,9 @@ public class TakitDNS extends JavaPlugin {
     			}
     		}
     		if ( entry==null ) {
-    			log.info(String.format(
+    			log.log(Level.WARNING, String.format(
     				Messages.DOMAIN_NOT_FOUND,
+    				appName,
     				domain
     			));
     			return;
@@ -73,7 +75,11 @@ public class TakitDNS extends JavaPlugin {
     		
     		if ( !currentIP.equals(entry[1]) ) {
 	    		getURL(entry[2]);
-	    		log.info(String.format(Messages.IP_CHANGED, currentIP));
+	    		log.info(String.format(
+	    			Messages.IP_CHANGED, 
+	    			appName,
+	    			currentIP
+	    		));
     		}
     	}
 	}
@@ -97,7 +103,7 @@ public class TakitDNS extends JavaPlugin {
 			}
 		}
 		
-		domain = config.getString("dns.domain", "freedns.afraid.org");
+		domain = config.getString("dns.domain");
 		username = config.getString("dns.username");
 		password = config.getString("dns.password");
 		interval = config.getInt("dns.interval");
