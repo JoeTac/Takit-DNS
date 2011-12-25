@@ -1,10 +1,14 @@
 package org.takit.dns;
 
-import java.io.BufferedReader;
+import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.net.Authenticator;
+import java.net.PasswordAuthentication;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -12,9 +16,11 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.takit.dns.services.Afraid;
+import org.takit.dns.services.Dyn;
 
 public class TakitDNS extends JavaPlugin {
 	public static final String FREEDNS_AFRAID_ORG = "freedns.afraid.org";
+	public static final String DYNS_DNS = "dyn.com";
 	
 	public static Logger log = Logger.getLogger("Minecraft");
 	
@@ -30,6 +36,7 @@ public class TakitDNS extends JavaPlugin {
 	public void onEnable() {
 		initConfig();
 		
+		host = host.toLowerCase();
 		if ( host.equals(FREEDNS_AFRAID_ORG) ) {
 			this.getServer().getScheduler().scheduleAsyncRepeatingTask(
 				this, 
@@ -37,6 +44,14 @@ public class TakitDNS extends JavaPlugin {
 				(interval*20)*60,
 				(interval*20)*60
 			);
+		}
+		else if ( host.equals(DYNS_DNS) ) {
+			this.getServer().getScheduler().scheduleAsyncRepeatingTask(
+					this, 
+					new Dyn(this, username, password, domain),
+					(interval*20)*60,
+					(interval*20)*60
+				);
 		}
 		else {
 			log.log(Level.WARNING, String.format(
@@ -62,7 +77,7 @@ public class TakitDNS extends JavaPlugin {
 			config.set("dns.username", "username");
 			config.set("dns.password", "password");
 			config.set("dns.interval", 10);
-			config.set("dns.host", FREEDNS_AFRAID_ORG);
+			config.set("dns.host", "dns-service");
 			try {
 				config.save(file);
 				config.load(file);
@@ -87,25 +102,38 @@ public class TakitDNS extends JavaPlugin {
 		return ret;
 	}
 	public static String getURL(String url) {
-		String fileContents = null;
 		try {
-			StringBuffer sb = new StringBuffer();
-			String line = "";
-			URL u = new URL(url);
-			InputStream is = u.openStream();
-			BufferedReader dr = new BufferedReader(new InputStreamReader(is));
-			
-			line=dr.readLine();
-			while ( line!=null) {
-				sb.append(line).append("\n");
-				line=dr.readLine();
+			int needsAuthentication = url.indexOf("@");
+			if ( needsAuthentication>-1 ) {
+				int start = url.indexOf("://")+3;
+				int startOfPassword = url.indexOf(":", start);
+				
+				final String username = url.substring(start, startOfPassword);
+				final String password = url.substring(startOfPassword+1, needsAuthentication);
+				Authenticator.setDefault(new Authenticator() {
+				    protected PasswordAuthentication getPasswordAuthentication() {
+				        return new PasswordAuthentication (username, password.toCharArray());
+				    }
+				});
+				
+				url = url.substring(0, start) + url.substring(needsAuthentication+1);
 			}
-			fileContents = sb.toString();
-			dr.close();
-			is.close();
+			
+			URL u = new URL(url);
+			URLConnection conn = u.openConnection();
+			conn.setRequestProperty("User-Agent", "org.takit.dns.TakitDNS/0.2");
+			BufferedInputStream bis = new BufferedInputStream(conn.getInputStream());
+			Reader in = new InputStreamReader(bis);
+			StringWriter fileContents = new StringWriter();
+			for (int b; (b = in.read()) != -1;) {
+				fileContents.write(b);
+	        }
+			bis.close();
+			
+			return ((StringWriter)fileContents).getBuffer().toString();
 		}
-		catch ( Exception ignore ) { }
+		catch ( Exception ignore ) { ignore.printStackTrace(); }
 		
-		return fileContents;
+		return null;
 	}
 }
