@@ -16,11 +16,15 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.takit.dns.services.Afraid;
+import org.takit.dns.services.DnsExit;
 import org.takit.dns.services.Dyn;
+import org.takit.dns.services.NoIp;
 
 public class TakitDNS extends JavaPlugin {
 	public static final String FREEDNS_AFRAID_ORG = "freedns.afraid.org";
 	public static final String DYNS_DNS = "dyn.com";
+	public static final String NO_IP = "no-ip.com";
+	public static final String DNS_EXIT = "dnsexit.com";
 	
 	public static Logger log = Logger.getLogger("Minecraft");
 	
@@ -36,22 +40,19 @@ public class TakitDNS extends JavaPlugin {
 	public void onEnable() {
 		initConfig();
 		
+		Runnable runnable = null;
 		host = host.toLowerCase();
 		if ( host.equals(FREEDNS_AFRAID_ORG) ) {
-			this.getServer().getScheduler().scheduleAsyncRepeatingTask(
-				this, 
-				new Afraid(this, username, password, domain),
-				(interval*20)*60,
-				(interval*20)*60
-			);
+			runnable = new Afraid(this, username, password, domain);
 		}
 		else if ( host.equals(DYNS_DNS) ) {
-			this.getServer().getScheduler().scheduleAsyncRepeatingTask(
-					this, 
-					new Dyn(this, username, password, domain),
-					(interval*20)*60,
-					(interval*20)*60
-				);
+			runnable = new Dyn(this, username, password, domain);
+		}
+		else if ( host.equals(NO_IP) ) {
+			runnable = new NoIp(this, username, password, domain);
+		}
+		else if ( host.equals(DNS_EXIT) ) {
+			runnable = new DnsExit(this, username, password, domain);
 		}
 		else {
 			log.log(Level.WARNING, String.format(
@@ -59,6 +60,15 @@ public class TakitDNS extends JavaPlugin {
 				getDescription().getName(),
 				host
 			));
+		}
+		
+		if ( runnable!=null ) {
+			this.getServer().getScheduler().scheduleAsyncRepeatingTask(
+					this, 
+					runnable,
+					(interval*20)*60,
+					(interval*20)*60
+				);
 		}
 		
 		log.info(String.format(
