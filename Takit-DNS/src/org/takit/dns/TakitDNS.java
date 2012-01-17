@@ -142,7 +142,12 @@ public class TakitDNS extends JavaPlugin {
 			
 			return ((StringWriter)fileContents).getBuffer().toString();
 		}
-		catch ( Exception ignore ) { ignore.printStackTrace(); }
+		catch ( Exception ignore ) { 
+			log.log(Level.WARNING, String.format(
+					Messages.HOST_NOT_FOUND,
+					url
+			));
+		}
 		
 		return null;
 	}
