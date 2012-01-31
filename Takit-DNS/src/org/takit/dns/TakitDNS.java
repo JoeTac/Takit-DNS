@@ -131,7 +131,7 @@ public class TakitDNS extends JavaPlugin {
 			
 			URL u = new URL(url);
 			URLConnection conn = u.openConnection();
-			conn.setRequestProperty("User-Agent", "org.takit.dns.TakitDNS/0.2");
+			conn.setRequestProperty("User-Agent", "org.takit.dns.TakitDNS/0.3.1");
 			BufferedInputStream bis = new BufferedInputStream(conn.getInputStream());
 			Reader in = new InputStreamReader(bis);
 			StringWriter fileContents = new StringWriter();
