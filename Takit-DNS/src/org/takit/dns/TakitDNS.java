@@ -34,6 +34,8 @@ public class TakitDNS extends JavaPlugin {
 	private long interval;
 	private String host;
 	
+	private static String pluginName;
+	
 	public void onDisable() {
 		log.info(String.format(Messages.PLUGIN_DISABLE, getDescription().getName()));
 	}
@@ -78,7 +80,9 @@ public class TakitDNS extends JavaPlugin {
 	}
 	
 	
-	public void initConfig() {
+	private void initConfig() {
+		pluginName = getDescription().getName();
+		
 		File file = new File("plugins"+File.separator+"Takit"+File.separator+"dns.yml");
 		FileConfiguration config = YamlConfiguration.loadConfiguration(file);
 		
@@ -145,6 +149,7 @@ public class TakitDNS extends JavaPlugin {
 		catch ( Exception ignore ) { 
 			log.log(Level.WARNING, String.format(
 					Messages.HOST_NOT_FOUND,
+					pluginName,
 					url
 			));
 		}
